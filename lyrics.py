@@ -106,10 +106,30 @@ def _to_romaji(text_lines: list[str]) -> list[str]:
     for line in text_lines:
         if _HAS_JAPANESE.search(line):
             converted = _kks.convert(line)
-            result.append(" ".join(item["hepburn"] for item in converted))
+            parts = _fix_particles(converted)
+            result.append(" ".join(parts))
         else:
             result.append("")
     return result
+
+
+def _fix_particles(converted: list[dict]) -> list[str]:
+    """Fix pykakasi particle misreadings: は→wa, へ→e."""
+    out = []
+    for tok in converted:
+        h = tok["hepburn"]
+        o = tok["orig"]
+        # Standalone particle は
+        if o == "は" and h == "ha":
+            h = "wa"
+        # Standalone particle へ
+        elif o == "へ" and h == "he":
+            h = "e"
+        # Merged token ending in は (e.g. これは → koreha → kore wa)
+        elif o.endswith("は") and h.endswith("ha") and len(o) > 1:
+            h = h[:-2] + " wa"
+        out.append(h)
+    return out
 
 
 def _parse_lrc_ts(lrc_data: dict | None) -> dict[int, str]:
