@@ -57,14 +57,10 @@ python lyrics.py search lemon -o lyrics.md
 
 - Python 3.8+
 - [requests](https://pypi.org/project/requests/) — HTTP 请求
-- [pykakasi](https://pypi.org/project/pykakasi/) — 日语 → 罗马音转换
+- [SudachiPy](https://pypi.org/project/SudachiPy/) + SudachiDict-core — 日语形态分析（准确读音）
+- [pykakasi](https://pypi.org/project/pykakasi/) — 假名 → 罗马音转换（回退方案）
 - tkinter — Python 内置 GUI 框架
 
 ## 平台支持
 
-| 功能 | Windows | Linux / Mac |
-|------|---------|-------------|
-| 搜索歌词 | ✓ | ✓ |
-| 罗马音生成 | ✓ | ✓ |
-| Markdown 导出 | ✓ | ✓ |
-| 当前播放 | ✓ | - |
+仅支持 Windows。Linux / Mac 未测试。

@@ -19,6 +19,15 @@ try:
 except ImportError:
     _HAS_PYKAKASI = False
 
+try:
+    from sudachipy import dictionary as _sudachi_dict
+    from sudachipy import tokenizer as _sudachi_tokenizer
+    _sudachi_tok = _sudachi_dict.Dictionary().create()
+    _SUDACHI_MODE = _sudachi_tokenizer.Tokenizer.SplitMode.C
+    _HAS_SUDACHI = True
+except ImportError:
+    _HAS_SUDACHI = False
+
 BASE_URL = "https://music.163.com"
 HEADERS = {
     "Referer": "https://music.163.com/",
@@ -99,9 +108,57 @@ _HAS_JAPANESE = re.compile(r"[぀-ヿ一-鿿]")  # kana + CJK ideographs
 
 
 def _to_romaji(text_lines: list[str]) -> list[str]:
-    """Convert Japanese text lines to romaji, skip non-Japanese lines."""
-    if not _HAS_PYKAKASI:
-        return []
+    """Convert Japanese text lines to romaji using best available method."""
+    if _HAS_SUDACHI and _HAS_PYKAKASI:
+        return _to_romaji_sudachi(text_lines)
+    if _HAS_PYKAKASI:
+        return _to_romaji_pykakasi(text_lines)
+    return []
+
+
+def _to_romaji_sudachi(text_lines: list[str]) -> list[str]:
+    """SudachiPy tokenization + pykakasi kana→romaji (best accuracy)."""
+    result = []
+    for line in text_lines:
+        if not _HAS_JAPANESE.search(line):
+            result.append("")
+            continue
+        tokens = list(_sudachi_tok.tokenize(line, _SUDACHI_MODE))
+        surfaces = [m.surface() for m in tokens]
+        pos_tags = [m.part_of_speech() for m in tokens]
+        readings = [m.reading_form() for m in tokens]
+        # Move trailing ッ to next token so gemination stays intact across boundaries
+        for i in range(len(readings) - 1):
+            if readings[i].endswith("ッ"):
+                readings[i] = readings[i][:-1]
+                readings[i + 1] = "ッ" + readings[i + 1]
+        # Join readings with | delimiter to preserve token boundaries
+        full_reading = "|".join(readings)
+        full_romaji = "".join(t["hepburn"] for t in _kks.convert(full_reading))
+        parts = full_romaji.split("|")
+        # Apply particle fixes per token, skip whitespace/symbol tokens
+        fixed = []
+        for i, (surface, pos, romaji) in enumerate(zip(surfaces, pos_tags, parts)):
+            if pos[0] in ("空白", "補助記号"):
+                continue
+            # Keep non-Japanese tokens as-is (English words, etc.)
+            if not _HAS_JAPANESE.search(surface):
+                fixed.append(surface)
+                continue
+            if surface == "は" and pos[0] == "助詞":
+                romaji = "wa"
+            elif surface == "へ" and pos[0] == "助詞":
+                romaji = "e"
+            elif surface.endswith("は") and romaji.endswith("ha") and len(surface) > 1:
+                romaji = romaji[:-2] + " wa"
+            if romaji:
+                fixed.append(romaji)
+        result.append(" ".join(fixed))
+    return result
+
+
+def _to_romaji_pykakasi(text_lines: list[str]) -> list[str]:
+    """Fallback: pykakasi-only conversion (character-level, less accurate)."""
     result = []
     for line in text_lines:
         if _HAS_JAPANESE.search(line):
@@ -119,13 +176,10 @@ def _fix_particles(converted: list[dict]) -> list[str]:
     for tok in converted:
         h = tok["hepburn"]
         o = tok["orig"]
-        # Standalone particle は
         if o == "は" and h == "ha":
             h = "wa"
-        # Standalone particle へ
         elif o == "へ" and h == "he":
             h = "e"
-        # Merged token ending in は (e.g. これは → koreha → kore wa)
         elif o.endswith("は") and h.endswith("ha") and len(o) > 1:
             h = h[:-2] + " wa"
         out.append(h)
