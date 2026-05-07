@@ -1,0 +1,9 @@
+build/
+dist/
+__pycache__/
+*.spec
+crash.log
+error.log
+.claude/
+idol.md
+lemon.md
