@@ -20,9 +20,11 @@ except ImportError:
     _HAS_PYKAKASI = False
 
 try:
+    import os as _os
+    _os.environ.setdefault("SUDACHI_DICT", "small")
     from sudachipy import dictionary as _sudachi_dict
     from sudachipy import tokenizer as _sudachi_tokenizer
-    _sudachi_tok = _sudachi_dict.Dictionary().create()
+    _sudachi_tok = _sudachi_dict.Dictionary(dict_type="small").create()
     _SUDACHI_MODE = _sudachi_tokenizer.Tokenizer.SplitMode.C
     _HAS_SUDACHI = True
 except ImportError:
